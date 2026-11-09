@@ -109,12 +109,11 @@ func _setup_environment() -> void:
 	env.glow_intensity = 0.9
 	env.glow_bloom = 0.08
 	env.glow_hdr_threshold = 0.95
-	env.ssao_enabled = true
-	env.ssao_intensity = 1.6
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.035
-	env.volumetric_fog_albedo = Color(0.55, 0.62, 0.75)
-	env.volumetric_fog_emission = Color(0.02, 0.03, 0.05)
+	# brouillard classique : léger pour la carte graphique, sans grain
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.16, 0.2, 0.28)
+	env.fog_density = 0.025
+	env.fog_aerial_perspective = 0.2
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.1

@@ -5,13 +5,13 @@ render_mode unshaded, cull_disabled, depth_test_disabled, depth_draw_never, fog_
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
-uniform int radius = 3;
-uniform float spread = 1.4;
+uniform int radius = 2;
+uniform float spread = 1.8;
 uniform float edge_strength = 0.75;
 uniform float saturation = 1.15;
 uniform vec3 shadow_color : source_color = vec3(0.12, 0.16, 0.28);
 uniform vec3 light_color : source_color = vec3(1.05, 0.95, 0.82);
-uniform float grain = 0.05;
+uniform float grain = 0.0;
 uniform float vignette = 0.45;
 
 void vertex() {
@@ -24,7 +24,7 @@ vec4 region(vec2 uv, vec2 px, vec2 dir) {
 	float n = 0.0;
 	for (int i = 0; i <= radius; i++) {
 		for (int j = 0; j <= radius; j++) {
-			vec3 c = textureLod(screen_tex, uv + vec2(float(i) * dir.x, float(j) * dir.y) * px * spread, 0.0).rgb;
+			vec3 c = min(textureLod(screen_tex, uv + vec2(float(i) * dir.x, float(j) * dir.y) * px * spread, 0.0).rgb, vec3(4.0));
 			sum += c;
 			sq += c * c;
 			n += 1.0;
@@ -77,8 +77,9 @@ void fragment() {
 	col = mix(vec3(l), col, saturation);
 
 	// grain de toile
-	float g = hash(floor(uv * VIEWPORT_SIZE / 2.0)) - 0.5;
-	col += g * grain;
+	if (grain > 0.0) {
+		col += (hash(mod(floor(uv * VIEWPORT_SIZE / 2.0), 256.0)) - 0.5) * grain;
+	}
 
 	// vignette
 	vec2 q = uv - 0.5;

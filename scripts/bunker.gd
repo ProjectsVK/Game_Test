@@ -289,7 +289,7 @@ func _build_lights() -> void:
 		omni.light_energy = 2.6
 		omni.omni_range = 11.0
 		omni.omni_attenuation = 1.2
-		omni.shadow_enabled = true
+		omni.shadow_enabled = false
 		omni.position = c + Vector3(0, 3.4, 0)
 		add_child(omni)
 		# suspension visible
