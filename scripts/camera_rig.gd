@@ -13,6 +13,7 @@ var shoulder := 0.7
 var spring: SpringArm3D
 var cam: Camera3D
 var _pivot: Node3D
+var paint: MeshInstance3D
 
 
 func _ready() -> void:
@@ -46,9 +47,13 @@ func _ready() -> void:
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	quad.position = Vector3(0, 0, -1)
 	cam.add_child(quad)
+	paint = quad
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
+		paint.visible = not paint.visible
+		Game.say("Filtre peinture " + ("activé" if paint.visible else "coupé") + " (touche P).")
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw -= event.relative.x * sensitivity
 		pitch = clampf(pitch - event.relative.y * sensitivity, -1.05, 0.55)

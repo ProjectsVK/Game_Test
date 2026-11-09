@@ -86,4 +86,6 @@ void fragment() {
 	col *= 1.0 - dot(q, q) * vignette * 2.0;
 
 	ALBEDO = col;
+	// écrire ALPHA place la passe dans le rendu transparent, après l'image opaque qu'elle lit
+	ALPHA = 1.0;
 }

@@ -28,6 +28,7 @@ La première ouverture prend quelques secondes : Godot importe les polices et co
 | C | Carnet d'enquête, écarter ou accuser un suspect |
 | F (maintenu) | Accélérer le temps |
 | N deux fois | Finir la journée |
+| P | Couper ou remettre le filtre peinture |
 | Échap | Fermer, libérer la souris |
 
 ## Les trois amis
