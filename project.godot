@@ -1,0 +1,25 @@
+; Bunker 1013 - projet Godot 4
+
+config_version=5
+
+[application]
+
+config/name="Bunker 1013"
+config/description="Enquête à la troisième personne dans un bunker souterrain."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[autoload]
+
+GameData="*res://scripts/game_data.gd"
+Game="*res://scripts/game.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.03, 0.04, 0.06, 1)
