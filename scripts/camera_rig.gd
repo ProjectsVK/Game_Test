@@ -51,9 +51,6 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
-		paint.visible = not paint.visible
-		Game.say("Filtre peinture " + ("activé" if paint.visible else "coupé") + " (touche P).")
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw -= event.relative.x * sensitivity
 		pitch = clampf(pitch - event.relative.y * sensitivity, -1.05, 0.55)
@@ -65,6 +62,11 @@ func _process(delta: float) -> void:
 	global_position = global_position.lerp(target.global_position, 1.0 - exp(-16.0 * delta))
 	rotation = Vector3(0, yaw, 0)
 	_pivot.rotation = Vector3(pitch, 0, 0)
+
+
+func set_paint(on: bool) -> void:
+	if paint:
+		paint.visible = on
 
 
 ## Base horizontale de la caméra : sert à convertir Z/Q/S/D en direction de marche.

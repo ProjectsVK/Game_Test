@@ -24,7 +24,12 @@ var _dialog: PanelContainer
 var _dialog_name: Label
 var _dialog_text: Label
 var _dialog_timer := 0.0
-var _party: HBoxContainer
+var _target: PanelContainer
+var _target_name: Label
+var _target_role: Label
+var _target_task: Label
+var _target_ref = null
+var _pause: Control
 var _abilities: HBoxContainer
 var _slots: Array = []
 var _screen: Control
@@ -52,7 +57,9 @@ func build(m) -> void:
 	_build_bottom()
 	_build_dialog()
 	_build_crosshair()
+	_build_target()
 	_build_notebook()
+	_build_pause()
 	_build_screen()
 
 
@@ -111,6 +118,7 @@ func _button(text: String) -> Button:
 	b.add_theme_stylebox_override("hover", _box(Color(0.32, 0.23, 0.14), INK, 4, 12))
 	b.add_theme_stylebox_override("pressed", _box(Color(0.1, 0.08, 0.05), INK, 4, 12))
 	b.add_theme_stylebox_override("focus", _box(Color(0, 0, 0, 0), AMBER, 4, 12))
+	b.pressed.connect(func(): Sfx.ui("ui_click", -4.0, 1.0, "SFX"))
 	return b
 
 
@@ -134,7 +142,7 @@ func _build_top() -> void:
 	st.add_child(_status)
 	_root.add_child(st)
 
-	var keys := _label("C carnet   ·   N ×2 finir la journée   ·   F accélérer   ·   Échap souris", 15, MUTED)
+	var keys := _label("E interagir   ·   C carnet   ·   F accélérer   ·   N ×2 finir la journée   ·   Échap pause", 15, MUTED)
 	_anchor(keys, Control.PRESET_TOP_RIGHT, -600, 28, -20, 52)
 	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_root.add_child(keys)
@@ -173,9 +181,6 @@ func _build_bottom() -> void:
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(bar)
-	_party = HBoxContainer.new()
-	_party.add_theme_constant_override("separation", 8)
-	bar.add_child(_party)
 	_abilities = HBoxContainer.new()
 	_abilities.add_theme_constant_override("separation", 8)
 	bar.add_child(_abilities)
@@ -188,39 +193,14 @@ func _build_bottom() -> void:
 	_root.add_child(_prompt)
 
 
-func refresh_party() -> void:
-	for c in _party.get_children():
-		c.queue_free()
-	for i in main.friends.size():
-		var fd: Dictionary = main.friends[i].data
-		var on: bool = i == main.active
-		var p := _panel(PANEL, AMBER if on else LINE, 8, 8)
-		p.modulate.a = 1.0 if on else 0.6
-		p.custom_minimum_size = Vector2(96, 0)
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", 0)
-		p.add_child(vb)
-		var n := _label(fd["name"], 22, fd["color"].lightened(0.25), f_display)
-		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var r := _label(fd["role"], 13, MUTED)
-		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vb.add_child(n)
-		vb.add_child(r)
-		_party.add_child(p)
-	var tab := _panel(PANEL, LINE, 8, 8)
-	tab.add_child(_label("Tab\nchanger", 14, MUTED))
-	_party.add_child(tab)
-
-
 func refresh_abilities() -> void:
 	for c in _abilities.get_children():
 		c.queue_free()
 	_slots.clear()
-	var fd: Dictionary = main.friends[main.active].data
 	for i in 4:
-		var a: Dictionary = fd["abilities"][i]
+		var a: Dictionary = GameData.PLAYER["abilities"][i]
 		var slot := Panel.new()
-		slot.custom_minimum_size = Vector2(132, 86)
+		slot.custom_minimum_size = Vector2(190, 92)
 		slot.add_theme_stylebox_override("panel", _box(PANEL, LINE, 8, 0))
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var key := _label(str(i + 1), 15, AMBER, f_bold)
@@ -228,16 +208,17 @@ func refresh_abilities() -> void:
 		var nm := _label(a["name"], 19, PAPER, f_bold)
 		nm.position = Vector2(10, 28)
 		var ds := _label(a["desc"], 13, MUTED)
-		ds.position = Vector2(10, 54)
-		ds.size = Vector2(116, 28)
+		ds.position = Vector2(10, 52)
+		ds.size = Vector2(172, 38)
+		ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ds.clip_text = true
 		var cdr := ColorRect.new()
 		cdr.color = Color(0.0, 0.0, 0.0, 0.65)
 		cdr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cdr.position = Vector2(0, 86)
-		cdr.size = Vector2(132, 0)
+		cdr.position = Vector2(0, 92)
+		cdr.size = Vector2(190, 0)
 		var cdn := _label("", 16, AMBER, f_bold)
-		cdn.position = Vector2(100, 6)
+		cdn.position = Vector2(160, 6)
 		slot.add_child(key)
 		slot.add_child(nm)
 		slot.add_child(ds)
@@ -269,17 +250,15 @@ func update_hud() -> void:
 	for n in main.npcs:
 		if not n.alive:
 			dead += 1
-	var st := "Victimes %d   ·   Accusations restantes %d" % [dead, GameData.CONFIG["max_wrong"] - Game.wrong]
-	if main.friends[main.active].data["id"] == "sacha":
-		st += "   ·   Crochetages %d" % main.crochet_left
+	var st := "Victimes %d   ·   Accusations restantes %d   ·   Crochetages %d" % [dead, GameData.CONFIG["max_wrong"] - Game.wrong, main.crochet_left]
 	_status.text = st
-	var f = main.friends[main.active]
+	var f = main.player
 	for i in _slots.size():
 		var c: float = f.cd[i]
 		var frac := clampf(c / _slots[i]["max"], 0.0, 1.0)
 		var r: ColorRect = _slots[i]["cd"]
-		r.size = Vector2(132, 86 * frac)
-		r.position = Vector2(0, 86 - 86 * frac)
+		r.size = Vector2(190, 92 * frac)
+		r.position = Vector2(0, 92 - 92 * frac)
 		_slots[i]["num"].text = str(ceili(c)) if c > 0.0 else ""
 	if _dialog.visible and not Game.paused:
 		_dialog_timer -= get_process_delta_time()
@@ -394,6 +373,7 @@ func show_screen(eyebrow: String, title: String, body: String, button: String, c
 	_screen_btn.visible = button != ""
 	_screen_cb = cb
 	_screen.visible = true
+	Sfx.ui("ui_open", -6.0)
 	if button != "":
 		_screen_btn.grab_focus.call_deferred()
 
@@ -409,16 +389,153 @@ func screen_visible() -> bool:
 	return _screen.visible
 
 
+## Ferme l'écran de récit sans rappeler l'action du bouton (test automatique).
+func dismiss_screen() -> void:
+	_screen.visible = false
+	Game.paused = false
+
+
 func show_title(cb: Callable) -> void:
-	var names: Array = []
-	for f in main.friends:
-		var a: Array = []
-		for ab in f.data["abilities"]:
-			a.append(ab["name"])
-		names.append("[b]%s[/b], %s : %s" % [f.data["name"], f.data["role"], ", ".join(PackedStringArray(a))])
-	var body: String = GameData.INTRO + "\n\n" + "\n".join(PackedStringArray(names)) + \
-		"\n\n[b]Commandes[/b]  Z Q S D pour marcher, souris pour viser, 1 à 4 pour les capacités, E pour parler, Tab pour changer d'ami, C pour le carnet et l'accusation, Maj pour courir."
-	show_screen("Un prototype · Secteur C", "Bunker 1013", body, "Entrer dans le Secteur C", cb)
+	var p: Dictionary = GameData.PLAYER
+	var lines: Array = []
+	for i in p["abilities"].size():
+		var ab: Dictionary = p["abilities"][i]
+		lines.append("[b]%d · %s[/b] : %s" % [i + 1, ab["name"], ab["desc"]])
+	var body: String = GameData.INTRO + "\n\n[b]%s[/b], %s.\n" % [p["name"], p["role"].to_lower()] + "\n".join(PackedStringArray(lines)) + \
+		"\n\n[b]Commandes[/b]  Z Q S D pour marcher, souris pour viser, Maj pour courir, 1 à 4 pour les capacités, E pour parler ou fouiller, C pour le carnet et l'accusation, Échap pour la pause (volumes, Débloquer)."
+	show_screen("Secteur C", "Bunker 1013", body, "Entrer dans le Secteur C", cb)
+
+
+# ---------------------------------------------------------------- personne visée
+
+func _build_target() -> void:
+	_target = _panel(PANEL, LINE, 8, 12)
+	_anchor(_target, Control.PRESET_CENTER_TOP, -170, 18, 170, 18)
+	_target.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_target.custom_minimum_size = Vector2(340, 0)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 2)
+	_target.add_child(vb)
+	_target_name = _label("", 28, PAPER, f_display)
+	_target_role = _label("", 16, MUTED, f_bold)
+	_target_task = _label("", 17, PAPER)
+	for l in [_target_name, _target_role, _target_task]:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(l)
+	_target.visible = false
+	_root.add_child(_target)
+
+
+func set_target(n) -> void:
+	var on: bool = n != null and not Game.paused
+	_target.visible = on
+	if not on:
+		_target_ref = null
+		return
+	if n != _target_ref:
+		_target_ref = n
+		var c: Color = n.color()
+		_target_name.text = n.display_name
+		_target_name.add_theme_color_override("font_color", c.lightened(0.35))
+		_target_role.text = "%s · équipe %s" % [n.role, GameData.TEAMS[n.team]["name"]]
+		_target.add_theme_stylebox_override("panel", _box(PANEL, c.lightened(0.1), 8, 12))
+	_target_task.text = n.task_label
+
+
+# ---------------------------------------------------------------- pause
+
+func _build_pause() -> void:
+	_pause = _overlay()
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause.add_child(cc)
+	var sheet := _panel(PAPER, Color(0, 0, 0, 0), 4, 30)
+	sheet.custom_minimum_size = Vector2(480, 0)
+	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	cc.add_child(sheet)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	sheet.add_child(vb)
+	vb.add_child(_label("Pause", 40, INK, f_display))
+	var resume := _button("Reprendre")
+	resume.pressed.connect(hide_pause)
+	vb.add_child(resume)
+	var unstuck := _button("Débloquer")
+	unstuck.pressed.connect(func():
+		hide_pause()
+		main.unstuck())
+	vb.add_child(unstuck)
+	var hint := _label("Coincé·e ? « Débloquer » replace Lina au centre de la salle la plus proche.", 14, Color(0.45, 0.38, 0.3))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size = Vector2(420, 0)
+	vb.add_child(hint)
+	vb.add_child(_label("Volumes", 22, INK, f_display))
+	for row in [["Master", "Général"], ["Music", "Musique"], ["SFX", "Effets"], ["Ambience", "Ambiance"]]:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 12)
+		var l := _label(row[1], 18, INK, f_bold)
+		l.custom_minimum_size = Vector2(110, 0)
+		hb.add_child(l)
+		var sl := HSlider.new()
+		sl.min_value = 0.0
+		sl.max_value = 1.0
+		sl.step = 0.05
+		sl.value = Game.volumes[row[0]]
+		sl.custom_minimum_size = Vector2(280, 24)
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var bus: String = row[0]
+		sl.value_changed.connect(func(v: float):
+			Game.set_volume(bus, v)
+			if bus != "Music":
+				Sfx.ui("ui_click", -6.0, 1.0, bus if bus != "Master" else "SFX"))
+		hb.add_child(sl)
+		vb.add_child(hb)
+	var paint := CheckButton.new()
+	paint.text = "Filtre peinture (touche P)"
+	paint.button_pressed = Game.paint_filter
+	paint.add_theme_color_override("font_color", INK)
+	paint.add_theme_color_override("font_pressed_color", INK)
+	paint.add_theme_color_override("font_hover_color", INK)
+	paint.add_theme_font_size_override("font_size", 18)
+	if f_bold:
+		paint.add_theme_font_override("font", f_bold)
+	paint.toggled.connect(func(on: bool): main.set_paint(on))
+	vb.add_child(paint)
+	var hb2 := HBoxContainer.new()
+	hb2.add_theme_constant_override("separation", 10)
+	var restart := _button("Recommencer")
+	restart.pressed.connect(func():
+		hide_pause()
+		main._restart())
+	var quit := _button("Quitter le jeu")
+	quit.pressed.connect(func(): get_tree().quit())
+	hb2.add_child(restart)
+	hb2.add_child(quit)
+	vb.add_child(hb2)
+	_pause.visible = false
+	_root.add_child(_pause)
+	_pause.set_meta("paint", paint)
+
+
+func pause_visible() -> bool:
+	return _pause.visible
+
+
+func show_pause() -> void:
+	Game.paused = true
+	main.set_capture(false)
+	(_pause.get_meta("paint") as CheckButton).set_pressed_no_signal(Game.paint_filter)
+	_pause.visible = true
+	Sfx.ui("ui_open", -6.0)
+
+
+func hide_pause() -> void:
+	if not _pause.visible:
+		return
+	_pause.visible = false
+	if not _screen.visible and not _notebook.visible:
+		Game.paused = false
+		main.set_capture(true)
 
 
 # ---------------------------------------------------------------- carnet
@@ -501,6 +618,7 @@ func toggle_notebook() -> void:
 		main.set_capture(false)
 		refresh_notebook()
 		_notebook.visible = true
+		Sfx.ui("ui_open", -6.0)
 
 
 func refresh_notebook() -> void:
