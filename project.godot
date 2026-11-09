@@ -14,6 +14,7 @@ run/max_fps=60
 
 GameData="*res://scripts/game_data.gd"
 Game="*res://scripts/game.gd"
+Sfx="*res://scripts/audio.gd"
 
 [display]
 

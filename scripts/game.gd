@@ -15,9 +15,34 @@ var struck := {}   # id habitant -> true si écarté dans le carnet
 var rng := RandomNumberGenerator.new()
 
 
+var volumes := {"Master": 0.8, "Music": 0.45, "SFX": 0.8, "Ambience": 0.6}
+var paint_filter := true
+
+
 func _ready() -> void:
 	rng.randomize()
 	_setup_inputs()
+	_setup_buses()
+
+
+## Bus audio : musique, effets et ambiance se règlent séparément dans le menu pause.
+func _setup_buses() -> void:
+	for bus in ["Music", "SFX", "Ambience"]:
+		if AudioServer.get_bus_index(bus) == -1:
+			AudioServer.add_bus()
+			var idx := AudioServer.bus_count - 1
+			AudioServer.set_bus_name(idx, bus)
+			AudioServer.set_bus_send(idx, "Master")
+	for bus in volumes:
+		set_volume(bus, volumes[bus])
+
+
+func set_volume(bus: String, linear: float) -> void:
+	volumes[bus] = linear
+	var idx := AudioServer.get_bus_index(bus)
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, linear_to_db(maxf(linear, 0.0001)))
+		AudioServer.set_bus_mute(idx, linear <= 0.001)
 
 
 ## Touches physiques : Z/Q/S/D sur AZERTY et W/A/S/D sur QWERTY tombent au même endroit.
@@ -32,12 +57,12 @@ func _setup_inputs() -> void:
 		"ability_2": [KEY_2, KEY_KP_2],
 		"ability_3": [KEY_3, KEY_KP_3],
 		"ability_4": [KEY_4, KEY_KP_4],
-		"switch_friend": [KEY_TAB],
-		"notebook": [KEY_C],
+				"notebook": [KEY_C],
 		"interact": [KEY_E],
 		"fast_time": [KEY_F],
 		"end_day": [KEY_N],
 		"cancel": [KEY_ESCAPE],
+		"toggle_paint": [KEY_P],
 	}
 	for action in map:
 		if not InputMap.has_action(action):
@@ -79,6 +104,7 @@ func add_clue(text: String, key: String = "") -> bool:
 		clue_keys[key] = true
 	clues.append({"day": day, "text": text})
 	toast.emit("Indice : " + text, "clue")
+	Sfx.ui("ui_clue")
 	return true
 
 
